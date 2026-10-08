@@ -59,10 +59,10 @@
       // 只清预览水印图；其余背景图（装饰花纹等）保留
       if (/watermark/i.test(bg)) clones[i].style.setProperty("background-image", "none", "important");
     }
-    // 编辑态控件（宽松类名匹配，宁多删不漏删；删错的内容节点在预览里一眼可见）
-    c.querySelectorAll(
-      "button,[class*=edit],[class*=delete],[class*=handle],[class*=toolbar],[class*=add-module],[class*=operate],[class*=picture-delete]"
-    ).forEach((n) => n.remove());
+    // 预览态残留清理：内联高度是缩放后的预览高度（calc(1003.76px)）、.scale 带
+    // transform:scale(0.89)，打印时会造成页高与 A4 错位 → 页尾空白/溢出
+    c.style.height = "";
+    c.querySelectorAll(".scale").forEach((s) => { s.style.transform = ""; s.style.height = ""; });
     return c;
   }
 
@@ -75,8 +75,16 @@
       "@page { size: A4; margin: 0; }\n" +
       "* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }\n" +
       "body { margin: 0; background: #fff; }\n" +
-      ".resume-main { transform: none !important; zoom: 1 !important; margin: 0 auto !important; box-shadow: none !important; }\n" +
-      ".scale { transform: none !important; }\n";
+      ".resume-main { transform: none !important; zoom: 1 !important; margin: 0 auto !important; box-shadow: none !important; height: auto !important; }\n" +
+      /* 官方 CSS 默认 .resume-main .scale { visibility:hidden }，由页面 JS 打印时改回；
+         静态导出文档没有那段 JS，必须强制可见 */
+      ".resume-main, .resume-main .scale, .resume-main .scale * { visibility: visible !important; }\n" +
+      ".scale { transform: none !important; height: auto !important; }\n" +
+      /* 打印分页核心：每个纸张容器精确一页 A4，页间 margin 归零（预览态有 16px 间距，
+         打印时该缝隙会把后续页推错位，产生页中/页尾空白） */
+      "[class*=one-page-container] { width: 210mm !important; height: 297mm !important; margin: 0 !important; overflow: hidden !important; break-after: page; page-break-after: always; box-sizing: border-box; }\n" +
+      "[class*=one-page-container]:last-child { break-after: auto; page-break-after: auto; }\n" +
+      ".resume-main { width: 210mm !important; }\n";
     const html = '<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><title>简历</title>' +
       "<style>" + css + "</style></head><body>" + clone.outerHTML + "</body></html>";
     const w = window.open("", "_blank");
